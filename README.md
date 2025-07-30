@@ -15,7 +15,7 @@ You earn money by killing enemies and can use it to place more towers.
 ⚙️ Requirements
 Unity Version: 6.1.0f1
 
-URP/HDRP compatible (optional)
+UR compatible 
 
 Input System: Unity Input System or Legacy Input
 
@@ -25,6 +25,7 @@ Here’s how the Scripts folder is organized:
 graphql
 Copy
 Edit
+
 Assets/
 ├── Scripts/
 │   ├── Enemy/                # Enemy behavior and logic
@@ -34,6 +35,8 @@ Assets/
 │   ├── Projectile/           # Projectile behavior
 │   ├── ScriptableObject Data/ # TowerData, EnemyData definitions
 │   └── Tower/                # Tower logic, placement, range visualizer
+
+
 🔁 Design Principles & Patterns Used
 ✅ SOLID Principles
 Single Responsibility:
@@ -66,7 +69,7 @@ Factory:
 Towers/Enemies are created using ScriptableObject-based factories
 
 Object Pool:
-Reuses bullets, enemies, and other frequently spawned objects
+Reuses  enemie spawned objects
 
 🏰 How to Create a New Tower
 Towers are defined using ScriptableObjects for modularity.
