@@ -15,7 +15,7 @@ You earn money by killing enemies and can use it to place more towers.
 ⚙️ Requirements
 Unity Version: 6.1.0f1
 
-URP/HDRP compatible (optional)
+UR compatible 
 
 Input System: Unity Input System or Legacy Input
 
