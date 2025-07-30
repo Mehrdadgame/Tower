@@ -66,7 +66,7 @@ Factory:
 Towers/Enemies are created using ScriptableObject-based factories
 
 Object Pool:
-Reuses bullets, enemies, and other frequently spawned objects
+Reuses  enemie spawned objects
 
 🏰 How to Create a New Tower
 Towers are defined using ScriptableObjects for modularity.
