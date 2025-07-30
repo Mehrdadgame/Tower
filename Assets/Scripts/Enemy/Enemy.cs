@@ -62,7 +62,7 @@ public class Enemy : MonoBehaviour, IDamageable
     private void Update()
     {
         CheckIfReachedEnd();
-        HandleCombat();
+        //  HandleCombat();
     }
 
     /// <summary>
