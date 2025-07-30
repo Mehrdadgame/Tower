@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using UnityEngine.UI;
 
 /* The `public class TowerManager : MonoBehaviour` is a C# class that inherits from the `MonoBehaviour`
 class provided by Unity. This class is responsible for managing towers in a tower defense game. It
@@ -18,8 +19,9 @@ public class TowerManager : MonoBehaviour
     private Tower selectedTower;
     private Camera mainCamera;
     private GameObject previewTower;
+    public Image RightClickIcon;            // Icon for right-click action
 
-    public System.Action<Tower> OnTowerSelected;
+    public Action<Tower> OnTowerSelected;
 
     private void Start()
     {
@@ -69,9 +71,11 @@ public class TowerManager : MonoBehaviour
                 if (tower != null)
                 {
                     SelectTower(tower);
+
                 }
                 else
                 {
+
                     // Clicked on empty space, deselect tower
                     DeselectTower();
                 }
@@ -176,6 +180,7 @@ public class TowerManager : MonoBehaviour
     {
         // Check for overlapping towers using a small radius
         Collider[] overlapping = Physics.OverlapSphere(position, 1.5f);
+        RightClickIcon.gameObject.SetActive(false); // hide right-click icon
         foreach (var collider in overlapping)
         {
             // Check for other towers
@@ -209,6 +214,7 @@ public class TowerManager : MonoBehaviour
     {
         DestroyPreview();
         selectedTowerData = null;
+
     }
 
     /// <summary>
@@ -218,6 +224,7 @@ public class TowerManager : MonoBehaviour
     {
         if (previewTower != null)
         {
+            RightClickIcon.gameObject.SetActive(false); // hide right-click icon
             Destroy(previewTower);
         }
     }
@@ -269,6 +276,7 @@ public class TowerManager : MonoBehaviour
         {
             selectedTower.HideRangeIndicator();
             selectedTower = null;
+            RightClickIcon.gameObject.SetActive(false); // Hide right-click icon
         }
 
         OnTowerSelected?.Invoke(null);
@@ -282,7 +290,9 @@ public class TowerManager : MonoBehaviour
     /// about a tower in the game, such as its type, cost, damage, range, and other attributes.</param>
     public void SetSelectedTowerData(TowerData towerData)
     {
+        RightClickIcon.gameObject.SetActive(true); // Show right-click icon
         selectedTowerData = towerData;
+
         DestroyPreview();
     }
 
