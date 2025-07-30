@@ -25,6 +25,7 @@ Here’s how the Scripts folder is organized:
 graphql
 Copy
 Edit
+
 Assets/
 ├── Scripts/
 │   ├── Enemy/                # Enemy behavior and logic
@@ -34,6 +35,8 @@ Assets/
 │   ├── Projectile/           # Projectile behavior
 │   ├── ScriptableObject Data/ # TowerData, EnemyData definitions
 │   └── Tower/                # Tower logic, placement, range visualizer
+
+
 🔁 Design Principles & Patterns Used
 ✅ SOLID Principles
 Single Responsibility:
