@@ -8,9 +8,9 @@ such as managing game settings, wave systems, references to other managers (like
 TowerManager), game state variables (money, health, wave number), and handling game events (money
 changed, health changed, game over, enemy killed). */
 
-public class GameManager : MonoBehaviour
+public class GameManager : Singleton<GameManager>
 {
-    public static GameManager Instance { get; private set; }
+
 
     [Header("Game Settings")]
     public int startingMoney = 150;
@@ -37,18 +37,7 @@ public class GameManager : MonoBehaviour
     public Action OnGameOver;
     public Action<int> OnEnemyKilled;
     public Transform ParentEnemy;
-    private void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
+
 
     private void Start()
     {
