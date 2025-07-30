@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc4659324a2ef7b4ca0458f781b91ab6, type: 3}
+  m_Name: EnemyData Normal
+  m_EditorClassIdentifier: 
+  enemyName: Enemy Normal
+  health: 150
+  maxHealth: 150
+  speed: 40
+  reward: 15
+  damage: 5
+  attackDamage: 9
+  attackRange: 60
+  attackRate: 1
+  enemyPrefab: {fileID: 715497860622137554, guid: 974eb908cd70d5d47b66fc57939c5380, type: 3}
+  enemyColor: {r: 0, g: 0.41719317, b: 1, a: 1}
