@@ -57,7 +57,7 @@ Code relies on abstractions like interfaces, not implementations
 
 🧠 Design Patterns
 Singleton:
-GameManager, SoundManager manage global game state
+GameManager manage global game state
 
 Observer:
 Event system updates UI on enemy death, tower placement, etc.
