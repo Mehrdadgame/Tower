@@ -1,65 +1,131 @@
 using UnityEngine;
 using System.Collections;
 
-/// <summary>
-/// Represents a tower in a tower defense game. Handles targeting, shooting, upgrading, and visualizing range.
-/// </summary>
+/* The `public class Tower` is a C# script that defines a Tower class in Unity. This Tower class
+inherits from MonoBehaviour and implements two interfaces: IUpgradeable and IShootable. */
 public class Tower : MonoBehaviour, IUpgradeable, IShootable
 {
     [Header("References")]
-    public Transform firePoint; // Position where projectiles are fired from
-    public Transform towerHead; // Rotating head that aims toward targets
-
+    public Transform firePoint;
+    public Transform towerHead;
 
     [Header("Range Visualization")]
-    public Material rangeMaterial;             // Material used for range indicator
-    public GameObject rangeIndicatorPrefab;    // Prefab for range visualization
+    public Material rangeMaterial;
+    public GameObject rangeIndicatorPrefab;
 
-    [Header("Placement Settings")]
-    public float placementRadius = 1f;         // Radius used to prevent overlapping placement
+    [Header("Effects")]
+    public float recoilAmount = 0.2f;
+    public float recoilDuration = 0.1f;
 
-    [Header("Recoil (Shake) Settings")]
-    public float recoilAmount = 0.2f;          // Distance to recoil when firing
-    public float recoilDuration = 0.1f;        // Duration of the recoil effect
+    // Constants
+    private const float TARGET_UPDATE_INTERVAL = 0.1f;
+    private const float ROTATION_SPEED = 5f;
+    private const int MAX_UPGRADE_LEVEL = 10;
 
-    // Internal state
+    // Cached Components
+    private SphereCollider placementCollider;
+    private GameObject rangeIndicator;
+
+    // Tower Data
     private TowerData towerData;
     private float currentDamage;
     private float currentRange;
     private float currentFireRate;
     private int upgradeLevel = 0;
 
+    // Combat State
+    private Enemy currentTarget;
     private float lastFireTime;
-    private Transform currentTarget;
-    private SphereCollider placementCollider;
-    private GameObject rangeIndicator;
-    private Renderer rangeRenderer;
+    private float nextTargetUpdateTime;
+
+    // Coroutines
+    private Coroutine targetingCoroutine;
+
+    #region Unity Lifecycle
 
     private void Awake()
     {
-        // Add a sphere collider to define placement spacing
+        SetupPlacementCollider();
+    }
+
+    private void Start()
+    {
+        TowerRegistry.RegisterTower(this);
+        StartTargetingCoroutine();
+    }
+
+    private void Update()
+    {
+        if (currentTarget != null)
+        {
+            RotateToTarget();
+
+            if (CanShoot())
+            {
+                Shoot(currentTarget.transform);
+            }
+        }
+    }
+
+    private void OnDestroy()
+    {
+        TowerRegistry.UnregisterTower(this);
+        StopTargetingCoroutine();
+    }
+
+    #endregion
+
+    #region Initialization
+
+    /// <summary>
+    /// The function SetupPlacementCollider creates a SphereCollider component with a radius of 1 and
+    /// sets it as a non-trigger collider.
+    /// </summary>
+    private void SetupPlacementCollider()
+    {
         placementCollider = gameObject.AddComponent<SphereCollider>();
-        placementCollider.radius = placementRadius;
+        placementCollider.radius = 1f;
         placementCollider.isTrigger = false;
     }
 
     /// <summary>
-    /// Initializes the tower using TowerData (damage, range, fire rate, etc.).
+    /// The Initialize function sets up a tower using the provided TowerData and initializes its
+    /// properties.
     /// </summary>
+    /// <param name="TowerData">The TowerData parameter is an object that contains information about a
+    /// tower, such as its damage, range, and fire rate. In the Initialize method, this data is used to
+    /// set up the tower with the specified attributes.</param>
+    /// <returns>
+    /// If the TowerData parameter is null, the method will return early after logging an error message
+    /// using Debug.LogError().
+    /// </returns>
     public void Initialize(TowerData data)
     {
+        if (data == null)
+        {
+            Debug.LogError("TowerData is null!");
+            return;
+        }
+
         towerData = data;
         currentDamage = data.damage;
         currentRange = data.range;
         currentFireRate = data.fireRate;
+        upgradeLevel = 0;
 
         gameObject.tag = "Tower";
 
         CreateRangeIndicator();
+        StartTargetingCoroutine();
     }
 
+    #endregion
+
+    #region Range Indicator
+
     /// <summary>
-    /// Creates and configures the visual range indicator.
+    /// The CreateRangeIndicator function creates a range indicator object based on a prefab or a default
+    /// indicator if the prefab is not set, updates its scale, and then deactivates it.
     /// </summary>
     private void CreateRangeIndicator()
     {
@@ -69,33 +135,42 @@ public class Tower : MonoBehaviour, IUpgradeable, IShootable
         }
         else
         {
-            // Create fallback using a simple Unity plane
-            GameObject rangePlane = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            rangeIndicator = rangePlane;
-            rangeIndicator.transform.SetParent(transform);
-            rangeIndicator.transform.localPosition = Vector3.zero;
-            rangeIndicator.transform.localRotation = Quaternion.identity;
-
-            // Remove physics collider from the plane
-            Collider planeCollider = rangeIndicator.GetComponent<Collider>();
-            if (planeCollider != null)
-            {
-                Destroy(planeCollider);
-            }
-        }
-
-        rangeRenderer = rangeIndicator.GetComponent<Renderer>();
-        if (rangeRenderer != null && rangeMaterial != null)
-        {
-            rangeRenderer.material = rangeMaterial;
+            CreateDefaultRangeIndicator();
         }
 
         UpdateRangeIndicatorScale();
-        rangeIndicator.SetActive(false);
+        rangeIndicator?.SetActive(false);
+    }
+
+    private void CreateDefaultRangeIndicator()
+    {
+        GameObject rangePlane = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        rangeIndicator = rangePlane;
+        rangeIndicator.name = "RangeIndicator";
+        rangeIndicator.transform.SetParent(transform);
+        rangeIndicator.transform.localPosition = Vector3.zero;
+        rangeIndicator.transform.localRotation = Quaternion.identity;
+
+        // Remove collider
+        var collider = rangeIndicator.GetComponent<Collider>();
+        if (collider != null)
+        {
+            Destroy(collider);
+        }
+
+        // Apply material
+        var renderer = rangeIndicator.GetComponent<Renderer>();
+        if (renderer != null && rangeMaterial != null)
+        {
+            renderer.material = rangeMaterial;
+        }
+
+        rangeIndicator.layer = LayerMask.NameToLayer("Ignore Raycast");
     }
 
     /// <summary>
-    /// Rescales the range indicator based on the current range.
+    /// The UpdateRangeIndicatorScale function updates the scale of a range indicator based on the
+    /// current range value.
     /// </summary>
     private void UpdateRangeIndicatorScale()
     {
@@ -106,81 +181,105 @@ public class Tower : MonoBehaviour, IUpgradeable, IShootable
         }
     }
 
-    private void Update()
+    public void ShowRangeIndicator()
     {
-        AcquireTarget();
+        rangeIndicator?.SetActive(true);
+    }
 
-        if (currentTarget != null)
+    public void HideRangeIndicator()
+    {
+        rangeIndicator?.SetActive(false);
+    }
+
+    #endregion
+
+    #region Targeting System
+
+    private void StartTargetingCoroutine()
+    {
+        StopTargetingCoroutine();
+        targetingCoroutine = StartCoroutine(TargetingLoop());
+    }
+
+    /// <summary>
+    /// The function `StopTargetingCoroutine` stops a coroutine if it is currently running.
+    /// </summary>
+    private void StopTargetingCoroutine()
+    {
+        if (targetingCoroutine != null)
         {
-            RotateToTarget();
-
-            if (CanShoot())
-            {
-                Shoot(currentTarget);
-            }
+            StopCoroutine(targetingCoroutine);
+            targetingCoroutine = null;
         }
     }
 
     /// <summary>
-    /// Finds or validates the current target.
+    /// The TargetingLoop function continuously updates the target at a specified interval.
     /// </summary>
-    private void AcquireTarget()
+    private IEnumerator TargetingLoop()
     {
+        while (true)
+        {
+            UpdateTarget();
+            yield return new WaitForSeconds(TARGET_UPDATE_INTERVAL);
+        }
+    }
+
+    private void UpdateTarget()
+    {
+        // Validate current target
         if (currentTarget != null)
         {
-            Enemy enemy = currentTarget.GetComponent<Enemy>();
-            if (enemy == null || !enemy.IsAlive() || Vector3.Distance(transform.position, currentTarget.position) > currentRange)
+            if (!IsTargetValid(currentTarget))
             {
                 currentTarget = null;
             }
         }
 
+        // Find new target if needed
         if (currentTarget == null)
         {
-            FindNearestEnemy();
+            currentTarget = EnemyManager.GetNearestEnemy(transform.position, currentRange);
         }
     }
 
     /// <summary>
-    /// Searches for the nearest enemy within range.
+    /// The IsTargetValid function checks if the enemy is not null, alive, active in the hierarchy, and
+    /// within the current range of the transform position.
     /// </summary>
-    private void FindNearestEnemy()
+    /// <param name="Enemy">The `Enemy` parameter in the `IsTargetValid` method represents an enemy
+    /// object in a game.</param>
+    /// <returns>
+    /// The method `IsTargetValid` is returning a boolean value.
+    /// </returns>
+    /// <summary>
+    /// The IsTargetValid function checks if an enemy is not null, alive, active in the game world, and
+    /// within a certain range from the player's position.
+    private bool IsTargetValid(Enemy enemy)
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsSortMode.None);
-        float shortestDistance = Mathf.Infinity;
-        Enemy nearestEnemy = null;
-
-        foreach (Enemy enemy in enemies)
-        {
-            if (enemy.IsAlive())
-            {
-                float distance = Vector3.Distance(transform.position, enemy.transform.position);
-                if (distance < shortestDistance && distance <= currentRange)
-                {
-                    shortestDistance = distance;
-                    nearestEnemy = enemy;
-                }
-            }
-        }
-
-        if (nearestEnemy != null)
-        {
-            currentTarget = nearestEnemy.transform;
-        }
+        return enemy != null &&
+               enemy.IsAlive() &&
+               enemy.gameObject.activeInHierarchy &&
+               Vector3.SqrMagnitude(transform.position - enemy.transform.position) <= (currentRange * currentRange);
     }
 
     /// <summary>
-    /// Rotates the tower head to face the current target.
+    /// The RotateToTarget function rotates the tower head towards the current target using
+    /// Quaternion.Slerp for smooth rotation.
     /// </summary>
     private void RotateToTarget()
     {
         if (towerHead != null && currentTarget != null)
         {
-            Vector3 direction = (currentTarget.position - towerHead.position).normalized;
+            Vector3 direction = (currentTarget.transform.position - towerHead.position).normalized;
             Quaternion lookRotation = Quaternion.LookRotation(direction);
-            towerHead.rotation = Quaternion.Slerp(towerHead.rotation, lookRotation, Time.deltaTime * 5f);
+            towerHead.rotation = Quaternion.Slerp(towerHead.rotation, lookRotation, Time.deltaTime * ROTATION_SPEED);
         }
     }
+
+    #endregion
+
+    #region Combat System
 
     public bool CanShoot()
     {
@@ -188,36 +287,54 @@ public class Tower : MonoBehaviour, IUpgradeable, IShootable
     }
 
     /// <summary>
-    /// Fires a projectile at the specified target.
+    /// The Shoot function creates a projectile, initializes it with a target and damage value, and
+    /// provides visual feedback through a recoil effect.
     /// </summary>
+    /// <param name="Transform">A Transform in Unity represents the position, rotation, and scale of an
+    /// object in the scene. It is commonly used to store the position of game objects in 3D space. In
+    /// the context of the `Shoot` method you provided, the `Transform target` parameter likely
+    /// represents the target object that</param>
+    /// <returns>
+    /// If the conditions in the if statement are met (target is null, towerData's projectilePrefab is
+    /// null, or firePoint is null), the method will return early and not execute the rest of the code
+    /// inside the Shoot method.
+    /// </returns>
     public void Shoot(Transform target)
     {
+        if (target == null || towerData?.projectilePrefab == null || firePoint == null) return;
+
         lastFireTime = Time.time;
 
+        // Create projectile
         GameObject projectileObj = Instantiate(towerData.projectilePrefab, firePoint.position, firePoint.rotation);
-        Projectile projectile = projectileObj.GetComponent<Projectile>();
+
+        // Initialize projectile
+        var projectile = projectileObj.GetComponent<Projectile>();
         if (projectile != null)
         {
             projectile.Initialize(target, currentDamage);
         }
 
+        // Visual feedback
         if (towerHead != null)
         {
-            StartCoroutine(RecoilShake());
+            StartCoroutine(RecoilEffect());
         }
     }
 
     /// <summary>
-    /// Coroutine to simulate recoil movement for visual feedback.
+    /// The RecoilEffect function simulates a recoil effect by moving an object back and forth from its
+    /// original position.
     /// </summary>
-    private IEnumerator RecoilShake()
+    private IEnumerator RecoilEffect()
     {
         Vector3 originalPosition = transform.localPosition;
         Vector3 recoilPosition = originalPosition + new Vector3(0f, 0f, -recoilAmount);
 
-        float elapsed = 0f;
-        float halfDuration = recoilDuration / 2f;
+        float halfDuration = recoilDuration * 0.5f;
 
+        // Recoil backward
+        float elapsed = 0f;
         while (elapsed < halfDuration)
         {
             transform.localPosition = Vector3.Lerp(originalPosition, recoilPosition, elapsed / halfDuration);
@@ -225,6 +342,7 @@ public class Tower : MonoBehaviour, IUpgradeable, IShootable
             yield return null;
         }
 
+        // Return to original position
         elapsed = 0f;
         while (elapsed < halfDuration)
         {
@@ -236,70 +354,58 @@ public class Tower : MonoBehaviour, IUpgradeable, IShootable
         transform.localPosition = originalPosition;
     }
 
-    // IUpgradeable implementation
+    #endregion
+
+    #region IUpgradeable Implementation
+
     public void Upgrade()
     {
+        if (!CanUpgrade()) return;
+
         upgradeLevel++;
         currentDamage *= towerData.upgradeMultiplier;
         currentRange *= towerData.upgradeMultiplier;
         currentFireRate *= towerData.upgradeMultiplier;
 
         UpdateRangeIndicatorScale();
+
+        Debug.Log($"Tower upgraded to level {upgradeLevel + 1}");
     }
 
-    public bool CanUpgrade() => upgradeLevel < 10;
+    public bool CanUpgrade()
+    {
+        return upgradeLevel < MAX_UPGRADE_LEVEL;
+    }
 
     public int GetUpgradeCost()
     {
         return Mathf.RoundToInt(towerData.upgradeCost * Mathf.Pow(1.2f, upgradeLevel));
     }
 
-    // Range indicator controls
-    public void ShowRangeIndicator()
-    {
-        if (rangeIndicator != null)
-        {
-            rangeIndicator.SetActive(true);
-        }
-    }
+    #endregion
 
-    public void HideRangeIndicator()
-    {
-        if (rangeIndicator != null)
-        {
-            rangeIndicator.SetActive(false);
-        }
-    }
+    #region Public Interface
 
-    public void ToggleRangeIndicator()
-    {
-        if (rangeIndicator != null)
-        {
-            rangeIndicator.SetActive(!rangeIndicator.activeSelf);
-        }
-    }
-
-    // Utility
-    public bool IsEnemyInRange(Transform enemy)
-    {
-        return Vector3.Distance(transform.position, enemy.position) <= currentRange;
-    }
-
-    // Stats getters
     public float GetDamage() => currentDamage;
     public float GetRange() => currentRange;
     public float GetFireRate() => currentFireRate;
     public int GetUpgradeLevel() => upgradeLevel;
+    public bool IsEnemyInRange(Transform enemy) => Vector3.SqrMagnitude(transform.position - enemy.position) <= (currentRange * currentRange);
 
-    /// <summary>
-    /// Draws gizmos in the editor to visualize range and placement radius.
-    /// </summary>
+    #endregion
+
+    #region Debug
+
     private void OnDrawGizmosSelected()
     {
+        // Draw range
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, currentRange);
 
+        // Draw placement radius
         Gizmos.color = Color.blue;
-        Gizmos.DrawWireSphere(transform.position, placementRadius);
+        Gizmos.DrawWireSphere(transform.position, placementCollider?.radius ?? 1f);
     }
+
+    #endregion
 }

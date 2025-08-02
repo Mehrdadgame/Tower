@@ -215,4 +215,8 @@ public class GameManager : Singleton<GameManager>
 
     public int GetMoney() => currentMoney;
     public int GetHealth() => currentHealth;
+    private void OnDestroy()
+    {
+        OnEnemyKilled -= AddMoney;
+    }
 }

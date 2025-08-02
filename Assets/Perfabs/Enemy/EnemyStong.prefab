@@ -309,7 +309,7 @@ MonoBehaviour:
   firePoint: {fileID: 6795663060699324688}
   enemyData: {fileID: 0}
   projectilePrefab: {fileID: 6397208763314400208, guid: a75f7ddbb272ca547901dbefade52ac6, type: 3}
-  HelthSlider: {fileID: 6212607416292272803}
+  healthSlider: {fileID: 6212607416292272803}
 --- !u!135 &-6814231287228155539
 SphereCollider:
   m_ObjectHideFlags: 0
